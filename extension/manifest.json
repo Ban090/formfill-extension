@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "FormFill Pro",
+  "version": "1.0.0",
+  "description": "Learn and auto-fill job application forms",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "utils/normalizer.js",
+        "utils/matcher.js",
+        "utils/storage.js",
+        "content/detector.js",
+        "content/learner.js",
+        "content/filler.js",
+        "content/index.js"
+      ],
+      "css": ["content/fab.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

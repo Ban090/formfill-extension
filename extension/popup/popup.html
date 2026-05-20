@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FormFill Pro</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <span class="logo">FF</span>
+    <h1>FormFill Pro</h1>
+  </header>
+
+  <section class="mode-section">
+    <p class="label">Mode</p>
+    <div class="mode-row">
+      <button id="btn-learn" class="mode-btn">Learn</button>
+      <button id="btn-fill" class="mode-btn primary">Fill</button>
+    </div>
+  </section>
+
+  <section class="stats-section">
+    <p class="label">Stored Fields</p>
+    <div id="field-count" class="stat">—</div>
+  </section>
+
+  <section class="actions-section">
+    <button id="btn-view" class="action-btn">View / Edit Fields</button>
+    <button id="btn-clear" class="action-btn danger">Clear All Data</button>
+  </section>
+
+  <div id="status-bar"></div>
+
+  <!-- Field editor panel -->
+  <div id="editor-panel" class="hidden">
+    <div class="editor-header">
+      <span>Stored Fields</span>
+      <button id="btn-close-editor">✕</button>
+    </div>
+    <div id="field-list"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
