@@ -1,17 +1,19 @@
 const Filler = (() => {
-  // Dispatch native events so React/Vue/Angular pick up the change
+  function getActiveAdapter() {
+    if (typeof WorkdayAdapter !== 'undefined' && WorkdayAdapter.isWorkday()) return WorkdayAdapter;
+    return GenericAdapter;
+  }
+
   function triggerChange(el) {
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('input',  { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
-    el.dispatchEvent(new Event('blur', { bubbles: true }));
+    el.dispatchEvent(new Event('blur',   { bubbles: true }));
   }
 
   function fillText(el, value) {
-    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-      Object.getPrototypeOf(el), 'value'
-    );
-    if (nativeInputValueSetter && nativeInputValueSetter.set) {
-      nativeInputValueSetter.set.call(el, value);
+    const nativeSetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
+    if (nativeSetter && nativeSetter.set) {
+      nativeSetter.set.call(el, value);
     } else {
       el.value = value;
     }
@@ -20,11 +22,8 @@ const Filler = (() => {
 
   function fillSelect(el, entry) {
     const options = Array.from(el.options);
-
-    // Try exact value match first
     let match = options.find(o => o.value === entry.value);
 
-    // Try text match on stored options
     if (!match && entry.options) {
       const storedText = Normalizer.option(
         entry.options.find(o => o.value === entry.value)?.text || ''
@@ -32,44 +31,33 @@ const Filler = (() => {
       match = options.find(o => Normalizer.option(o.text) === storedText);
     }
 
-    // Fuzzy text match
     if (!match) {
-      const targetText = Normalizer.option(entry.value);
-      match = options.find(o => Normalizer.option(o.text).includes(targetText) || targetText.includes(Normalizer.option(o.text)));
+      const target = Normalizer.option(entry.value);
+      match = options.find(o => {
+        const t = Normalizer.option(o.text);
+        return t.includes(target) || target.includes(t);
+      });
     }
 
-    if (match) {
-      el.value = match.value;
-      triggerChange(el);
-      return true;
-    }
+    if (match) { el.value = match.value; triggerChange(el); return true; }
     return false;
   }
 
   function fillRadio(elements, entry) {
-    // Try exact value match
     let target = elements.find(el => el.value === entry.value);
 
-    // Fuzzy: match by label text if stored options available
     if (!target && entry.options) {
       const storedOpt = entry.options.find(o => o.value === entry.value);
       if (storedOpt) {
         const storedLabel = Normalizer.option(storedOpt.label || storedOpt.value);
         for (const el of elements) {
           const elLabel = Normalizer.option(Detector.getLabelText(el) || el.value);
-          if (elLabel === storedLabel || elLabel.includes(storedLabel)) {
-            target = el;
-            break;
-          }
+          if (elLabel === storedLabel || elLabel.includes(storedLabel)) { target = el; break; }
         }
       }
     }
 
-    if (target) {
-      target.checked = true;
-      triggerChange(target);
-      return true;
-    }
+    if (target) { target.checked = true; triggerChange(target); return true; }
     return false;
   }
 
@@ -78,13 +66,15 @@ const Filler = (() => {
     triggerChange(el);
   }
 
-  // Main fill routine — returns stats { filled, skipped, unmatched }
   async function fillPage() {
-    const answers = await Storage.getAnswers();
+    const adapter = getActiveAdapter();
+    const answers  = await Storage.getAnswers();
     const storedKeys = Object.keys(answers);
-    const fields = Detector.detectFields();
+    const fields   = adapter.detectFields();
+    const stats    = { filled: 0, skipped: 0, unmatched: [] };
 
-    const stats = { filled: 0, skipped: 0, unmatched: [] };
+    console.info('[FormFill] Fill — detected fields:', fields.map(f => `${f.labelText} [${f.type}]`));
+    console.info('[FormFill] Stored keys:', storedKeys);
 
     for (const field of fields) {
       if (field.type === 'file') { stats.skipped++; continue; }
@@ -93,37 +83,35 @@ const Filler = (() => {
       if (!labelText) { stats.skipped++; continue; }
 
       const fieldKey = Normalizer.key(labelText);
-
-      // Exact match first, then fuzzy
       let entry = answers[fieldKey];
       if (!entry) {
         const best = Matcher.findBestMatch(fieldKey, storedKeys);
-        if (best) entry = answers[best.key];
+        if (best) {
+          console.info(`[FormFill] Fuzzy match: "${fieldKey}" → "${best.key}" (score ${best.score.toFixed(2)})`);
+          entry = answers[best.key];
+        }
       }
 
-      if (!entry) {
-        stats.unmatched.push(labelText);
-        continue;
-      }
+      if (!entry) { stats.unmatched.push(labelText); continue; }
 
       let ok = false;
       if (field.type === 'radio') {
         ok = fillRadio(field.elements, entry);
       } else if (field.type === 'checkbox') {
-        fillCheckbox(field.element, entry.value);
-        ok = true;
+        fillCheckbox(field.element, entry.value); ok = true;
       } else if (field.type === 'select') {
         ok = fillSelect(field.element, entry);
+      } else if (field.type === 'workday-select') {
+        ok = await WorkdayAdapter.fillWorkdaySelect(field, entry.value);
       } else {
-        // text / textarea
-        fillText(field.element, entry.value);
-        ok = true;
+        fillText(field.element, entry.value); ok = true;
       }
 
       if (ok) stats.filled++;
       else stats.skipped++;
     }
 
+    console.info('[FormFill] Stats:', stats);
     return stats;
   }
 

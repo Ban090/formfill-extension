@@ -22,6 +22,8 @@
         "utils/matcher.js",
         "utils/storage.js",
         "content/detector.js",
+        "content/adapters/generic.js",
+        "content/adapters/workday.js",
         "content/learner.js",
         "content/filler.js",
         "content/index.js"
